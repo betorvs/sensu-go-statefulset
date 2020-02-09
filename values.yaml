@@ -1,0 +1,111 @@
+# Default values for sensu-go-statefulset.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 3
+
+image:
+  repository: sensu/sensu
+  tag: 5.17.1
+  pullPolicy: IfNotPresent
+
+imagedns:
+  repository: busybox
+  tag: 1.28
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+namespace: sensu
+
+serviceHeadless:
+  name: sensu
+  type: ClusterIP
+  clusterIP: None
+  notReady: true
+
+serviceEtcdClient:
+  port: 2379
+  protocol: TCP
+  name: etcd-client
+
+serviceEtcdServer:
+  port: 2380
+  protocol: TCP 
+  name: etcd-server
+
+service:
+  name: sensu-api 
+  type: ClusterIP 
+  health: /health
+
+serviceApi:
+  name: api
+  port: 8080
+  protocol: TCP
+
+serviceWebsocket:
+  name: websocket
+  port: 8081
+  protocol: TCP
+
+serviceDashboard:
+  name: dashboard
+  port: 3000
+  protocol: TCP
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: websocket.example.local
+      paths: 
+        8081: /
+    - host: dashboard.example.local
+      paths:
+        3000: "/"
+    - host: api.example.local
+      paths: 
+        8080: "/"
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits:
+    cpu: 4000m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+SSLCertificates:
+  enabled: false
+  backendCertMountPath: /certs
+  backendCertName: sensu-backend-pem
+  backendVolumeName: sensu-backend-pem
+  backendVolumeSecretName: sensu-backend-pem
+  caCertMountPath: /certs-ca
+  caCertName: sensu-ca-pem
+  caVolumeName: sensu-ca-pem
+  caVolumeSecretName: sensu-ca-pem 
+
+sensuCredentials: credentials
+sensuApiUrl: sensu-api.example.local
+importResources:
+  enabled: false

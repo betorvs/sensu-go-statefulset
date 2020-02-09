@@ -1,0 +1,147 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "sensu-go-statefulset.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+{{ include "sensu-go-statefulset.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ .Values.serviceHeadless.name }}
+  podManagementPolicy: "Parallel"
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "sensu-go-statefulset.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "sensu-go-statefulset.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: initdns
+          image: "{{ .Values.imagedns.repository }}:{{ .Values.imagedns.tag }}"
+          command: ['sh', '-c', 'until nslookup {{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local; do echo waiting for myservice; sleep 2; done;']
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh 
+            - -ec 
+            - |
+              INDEX=$( echo $HOST_NAME | awk -F"-" '{print $NF}' )
+              NEW=$((START_REPLICAS_STATEFULSET-1))
+              if [ "${INDEX}" -le "${NEW}" ];then 
+                echo "Starting cluster with ${START_REPLICAS_STATEFULSET} number of replicas"
+                sensu-backend start --etcd-name ${HOST_NAME}.{{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local \
+                  --etcd-discovery-srv {{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local \
+                  --etcd-initial-advertise-peer-urls http://${HOST_NAME}.{{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local:2380 \
+                  --etcd-initial-cluster-token sensu --etcd-initial-cluster-state new \
+                  --etcd-advertise-client-urls http://${HOST_NAME}.{{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local:2379 \
+                  --etcd-listen-client-urls http://0.0.0.0:2379 --etcd-listen-peer-urls http://0.0.0.0:2380 \
+                  --state-dir /var/lib/sensu/sensu-backend/${HOST_NAME} --log-level debug --debug \
+                  {{ if .Values.SSLCertificates.enabled }}--trusted-ca-file {{ .Values.SSLCertificates.caCertMountPath }}/sensu-ca.pem --cert-file {{ .Values.SSLCertificates.backendCertMountPath }}/sensu-backend.pem --key-file {{ .Values.SSLCertificates.backendCertMountPath }}/sensu-backend-key.pem --api-url https://{{ .Values.sensuApiUrl }}:{{ .Values.serviceApi.port }} {{ else }}--api-url http://{{ .Values.sensuApiUrl }}:{{ .Values.serviceApi.port }}  {{ end }}
+              else
+                echo "Adding and starting a new member"
+                sensuctl configure -n --username "${SENSU_BACKEND_CLUSTER_ADMIN_USERNAME}" --password "${SENSU_BACKEND_CLUSTER_ADMIN_PASSWORD}" --namespace default {{ if .Values.SSLCertificates.enabled }} --trusted-ca-file {{ .Values.SSLCertificates.caCertMountPath }}/sensu-ca.pem --url https://{{ .Values.sensuApiUrl }}:{{ .Values.serviceApi.port }} {{ else }} --url http://{{ .Values.sensuApiUrl }}:{{ .Values.serviceApi.port }} {{ end }}
+                sensuctl cluster member-add "${HOST_NAME}.{{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local" "http://${HOST_NAME}.{{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local:2380"
+                echo "member added"
+                sleep 10 
+                sensu-backend start --etcd-name ${HOST_NAME}.{{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local \
+                  --etcd-discovery-srv {{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local \
+                  --etcd-initial-advertise-peer-urls http://${HOST_NAME}.{{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local:2380 \
+                  --etcd-initial-cluster-state existing --etcd-advertise-client-urls http://${HOST_NAME}.{{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local:2379 \
+                  --etcd-listen-client-urls http://0.0.0.0:2379 --etcd-listen-peer-urls http://0.0.0.0:2380 --state-dir /var/lib/sensu/sensu-backend/${HOST_NAME} --log-level debug --debug \
+                  {{ if .Values.SSLCertificates.enabled }}--trusted-ca-file {{ .Values.SSLCertificates.caCertMountPath }}/sensu-ca.pem --cert-file {{ .Values.SSLCertificates.backendCertMountPath }}/sensu-backend.pem --key-file {{ .Values.SSLCertificates.backendCertMountPath }}/sensu-backend-key.pem --api-url https://{{ .Values.sensuApiUrl }}:{{ .Values.serviceApi.port }}{{ else }}--api-url http://{{ .Values.sensuApiUrl }}:{{ .Values.serviceApi.port }} {{ end }}
+              fi
+          ports:
+          - containerPort: {{ .Values.serviceEtcdClient.port }}
+            name: {{ .Values.serviceEtcdClient.name }}
+          - containerPort: {{ .Values.serviceEtcdServer.port }}
+            name: {{ .Values.serviceEtcdServer.name }}
+          - containerPort: {{ .Values.serviceApi.port }}
+            name: {{ .Values.serviceApi.name }}
+          - containerPort: {{ .Values.serviceWebsocket.port }}
+            name: {{ .Values.serviceWebsocket.name }}
+          - containerPort: {{ .Values.serviceDashboard.port }}
+            name: {{ .Values.serviceDashboard.name }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - sh 
+                - -ec 
+                - |
+                  sensuctl configure -n --username "${SENSU_BACKEND_CLUSTER_ADMIN_USERNAME}" --password "${SENSU_BACKEND_CLUSTER_ADMIN_PASSWORD}" --namespace default --format yaml {{ if .Values.SSLCertificates.enabled }} --trusted-ca-file {{ .Values.SSLCertificates.caCertMountPath }}/sensu-ca.pem --url https://{{ .Values.sensuApiUrl }}:{{ .Values.serviceApi.port }} {{ else }} --url http://{{ .Values.sensuApiUrl }}:{{ .Values.serviceApi.port }} {{ end }}
+                  MEMBERINT=$( sensuctl cluster member-list | grep -B 3 ${HOST_NAME}.{{ .Values.serviceHeadless.name }}.{{ .Values.namespace }}.svc.cluster.local | grep id |awk -F':' '{print $2}') 
+                  MEMBERID=$(printf '%x\n' ${MEMBERINT})
+                  echo "Removing ${HOST_NAME} ${MEMBERID}"
+                  sensuctl cluster member-remove ${MEMBERID}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.service.health }}
+              port: {{ .Values.serviceApi.port }}
+              scheme: {{ if .Values.SSLCertificates.enabled }}HTTPS{{ else }}HTTP{{ end }}
+            initialDelaySeconds: 15
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.service.health }}
+              port: {{ .Values.serviceApi.port }}
+              scheme: {{ if .Values.SSLCertificates.enabled }}HTTPS{{ else }}HTTP{{ end }}
+            initialDelaySeconds: 15
+          env:
+          - name: HOST_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: START_REPLICAS_STATEFULSET 
+            value: "{{ .Values.replicaCount }}"
+          - name: SENSU_BACKEND_CLUSTER_ADMIN_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.sensuCredentials }}
+                key: sensu_backend_cluster_admin_username
+          - name: SENSU_BACKEND_CLUSTER_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.sensuCredentials }} 
+                key: sensu_backend_cluster_admin_password
+          {{- if .Values.SSLCertificates.enabled }}
+          volumeMounts:
+          - mountPath: {{ .Values.SSLCertificates.backendCertMountPath }}
+            name: {{ .Values.SSLCertificates.backendCertName }}
+            readOnly: true
+          - mountPath: {{ .Values.SSLCertificates.caCertMountPath }}
+            name: {{ .Values.SSLCertificates.caCertName }}
+            readOnly: true
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      volumes:
+        {{- if .Values.SSLCertificates.enabled }}
+        - name: {{ .Values.SSLCertificates.backendVolumeName }}
+          secret:
+            secretName: {{ .Values.SSLCertificates.backendVolumeSecretName }}
+        - name: {{ .Values.SSLCertificates.caVolumeName }}
+          secret:
+            secretName: {{ .Values.SSLCertificates.caVolumeSecretName }}
+        {{- end }}

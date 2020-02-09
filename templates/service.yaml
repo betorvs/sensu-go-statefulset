@@ -1,0 +1,50 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.serviceHeadless.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+{{ include "sensu-go-statefulset.labels" . | indent 4 }}
+spec:
+  type: {{ .Values.serviceHeadless.type }}
+  ports:
+    - port: {{ .Values.serviceEtcdClient.port }}
+      targetPort: {{ .Values.serviceEtcdClient.port }}
+      protocol: {{ .Values.serviceEtcdClient.protocol }}
+      name: {{ .Values.serviceEtcdClient.name }}
+    - port: {{ .Values.serviceEtcdServer.port }}
+      targetPort: {{ .Values.serviceEtcdServer.port }}
+      protocol: {{ .Values.serviceEtcdServer.protocol }}
+      name: {{ .Values.serviceEtcdServer.name }}
+  clusterIP: {{ .Values.serviceHeadless.clusterIP }}
+  publishNotReadyAddresses: {{ .Values.serviceHeadless.notReady }}
+  selector:
+    app.kubernetes.io/name: {{ include "sensu-go-statefulset.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+{{ include "sensu-go-statefulset.labels" . | indent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.serviceApi.port }}
+      targetPort: {{ .Values.serviceApi.port }}
+      protocol: {{ .Values.serviceApi.protocol }}
+      name: {{ .Values.serviceApi.name }}
+    - port: {{ .Values.serviceWebsocket.port }}
+      targetPort: {{ .Values.serviceWebsocket.port }}
+      protocol: {{ .Values.serviceWebsocket.protocol }}
+      name: {{ .Values.serviceWebsocket.name }}
+    - port: {{ .Values.serviceDashboard.port }}
+      targetPort: {{ .Values.serviceDashboard.port }}
+      protocol: {{ .Values.serviceDashboard.protocol }}
+      name: {{ .Values.serviceDashboard.name }}
+  selector:
+    app.kubernetes.io/name: {{ include "sensu-go-statefulset.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
