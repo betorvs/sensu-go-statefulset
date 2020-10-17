@@ -3,11 +3,11 @@ entries:
   sensu-go-statefulset:
   - apiVersion: v1
     appVersion: "1.0"
-    created: "2020-02-09T17:50:31.609293641Z"
+    created: "2020-10-17T15:31:30.233953456Z"
     description: A Helm chart for Kubernetes
-    digest: ee16e093f88295c27de480eb5ed14667cdfa050ff40ccd4bf6c2b95d818b8b6b
+    digest: 7429ca41ad8f4cd0d74e0629ef6b218cd2b948fdb323a9b6ab939c927ef07d73
     name: sensu-go-statefulset
     urls:
-    - sensu-go-statefulset-0.1.0.tgz
-    version: 0.1.0
-generated: "2020-02-09T17:50:31.608195518Z"
+    - sensu-go-statefulset-0.1.1.tgz
+    version: 0.1.1
+generated: "2020-10-17T15:31:30.233332366Z"
