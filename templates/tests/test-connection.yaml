@@ -1,3 +1,4 @@
+{{- if .Values.testConnection.enabled -}}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -17,3 +18,4 @@ spec:
       args:  ['http://{{ .Values.service.name }}.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.serviceApi.port }}{{ .Values.service.health }}']
       {{- end }}
   restartPolicy: Never
+  {{- end }}

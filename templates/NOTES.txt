@@ -27,6 +27,12 @@
   {{ end }}
   kubectl port-forward $POD_NAME {{ .Values.serviceDashboard.port }}:{{ .Values.serviceDashboard.port }}
 {{- end }}
+{{ if $.Values.websocketLoadBalanced.enabled}}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w sensu-websocket'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} sensu-websocket -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- end }}
 {{ if $.Values.importResources.enabled}}
   NOTE: Remove job from namespace after completed
   kubectl delete --namespace {{ .Release.Namespace }} job/configurator

@@ -48,3 +48,25 @@ spec:
   selector:
     app.kubernetes.io/name: {{ include "sensu-go-statefulset.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
+{{- if .Values.websocketLoadBalanced.enabled -}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sensu-websocket
+  namespace: sensu
+  labels:
+{{ include "sensu-go-statefulset.labels" . | indent 4 }}
+  annotations:
+{{ include "sensu-go-statefulset.websocketLoadBalanced.annotations" . | indent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ include "sensu-go-statefulset.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  type: LoadBalancer
+  ports:
+    - port: {{ .Values.serviceWebsocket.port }}
+      targetPort: {{ .Values.serviceWebsocket.port }}
+      protocol: {{ .Values.serviceWebsocket.protocol }}
+      name: {{ .Values.serviceWebsocket.name }}
+{{- end }}
