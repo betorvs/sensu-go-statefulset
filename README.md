@@ -1,6 +1,12 @@
 # Sensu Statefulset
 
-Travis CI: [![Build Status](https://travis-ci.org/betorvs/sensu-go-statefulset.svg?branch=master)](https://travis-ci.org/betorvs/sensu-go-statefulset)
+![Test](https://github.com/betorvs/sensu-go-statefulset/workflows/Go%20Test/badge.svg)
+
+## Prerequisites
+
+- Kubernetes 1.18+
+- Helm > 3
+- PV provisioner support in the underlying infrastructure (in case you don't have you can run it with one instance and decrease cronJob schedule)
 
 ## Deploy
 
@@ -63,7 +69,6 @@ From an test environment, create a dump using sensuctl, like:
 
 ```sh
 sensuctl dump all --format yaml --file exported.yaml
-
 ```
 
 Then create an Kubernetes Secret using this:

@@ -3,10 +3,12 @@
 # Declare variables to be passed into your templates.
 
 replicaCount: 3
+sensuStatefulSetName: sensu-backend 
+sensuContainerName: backend
 
 image:
   repository: sensu/sensu
-  tag: 5.21.3
+  tag: 6.2.5
   pullPolicy: IfNotPresent
 
 imagedns:
@@ -56,10 +58,12 @@ serviceDashboard:
   protocol: TCP
 
 ingress:
+  type: ImplementationSpecific
   enabled: false
-  annotations: {}
+  annotations: 
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
+    # nginx.ingress.kubernetes.io/ssl-passthrough: true
   hosts:
     - host: websocket.example.local
       paths: 
@@ -104,7 +108,7 @@ websocketLoadBalanced:
     # external-dns.alpha.kubernetes.io/hostname: "sensu-websocket.example.local"
 
 SSLCertificates:
-  enabled: false
+  enabled: true
   backendCertMountPath: /certs
   backendCertName: sensu-backend-pem
   backendVolumeName: sensu-backend-pem
@@ -117,4 +121,5 @@ SSLCertificates:
 sensuCredentials: credentials
 sensuApiUrl: sensu-api.example.local
 importResources:
-  enabled: false
+  enabled: true
+  schedule: "*/15 * * * *"

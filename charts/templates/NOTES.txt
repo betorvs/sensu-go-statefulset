@@ -34,6 +34,8 @@
   echo http://$SERVICE_IP:{{ .Values.service.port }}
 {{- end }}
 {{ if $.Values.importResources.enabled}}
-  NOTE: Remove job from namespace after completed
-  kubectl delete --namespace {{ .Release.Namespace }} job/configurator
+  NOTE: By default, it will run every 15 minute. It needed, just run a manual job:
+  kubectl create job --from=cronjob/configurator configurator-manual-one -n {{ .Release.Namespace }}
+  And delete after it run:
+  kubectl delete --namespace {{ .Release.Namespace }} job/configurator-manual-one
 {{- end }}

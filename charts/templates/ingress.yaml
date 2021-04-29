@@ -1,7 +1,8 @@
 {{- if .Values.ingress.enabled -}}
 {{- $fullName := include "sensu-go-statefulset.fullname" . -}}
 {{- $serviceName := .Values.service.name -}}
-apiVersion: extensions/v1beta1
+{{- $ingressType := .Values.ingress.type }}
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ $fullName }}
@@ -30,6 +31,7 @@ spec:
         paths:
         {{- range $key, $val := .paths }}
           - path: {{ $val }}
+            pathType: {{ $ingressType }}
             backend:
               serviceName: {{ $serviceName }}
               servicePort: {{ $key }}
